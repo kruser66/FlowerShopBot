@@ -31,12 +31,14 @@ pip install -r requirements.txt
 
 ### Переменные окружения
 
-DEBUG=True
-DATABASE=sqlite:///db.sqlite3
-TG_TOKEN='Your bot token'
-FLORIST_ID='ChatID флористов'
-SERVICE_ID='ChatID курьеров'
-PAYMENT_PROVIDER_TOKEN = 'YOUR PAYMENT_PROVIDER_TOKEN'
+```
+DEBUG=True  
+DATABASE=sqlite:///db.sqlite3  
+TG_TOKEN='Your bot token'  
+FLORIST_ID='ChatID флористов'  
+SERVICE_ID='ChatID курьеров'  
+PAYMENT_PROVIDER_TOKEN = 'YOUR PAYMENT_PROVIDER_TOKEN'  
+```
 
 ## Как запустить
 
