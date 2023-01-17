@@ -5,11 +5,11 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'flowershop.settings'
 django.setup()
 from telegram import (
     Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton,
-    InlineKeyboardMarkup, KeyboardButton
+    InlineKeyboardMarkup, KeyboardButton, LabeledPrice
 )
 from telegram.ext import (
     Updater, CommandHandler, ConversationHandler, CallbackQueryHandler,
-    MessageHandler, Filters, CallbackContext
+    MessageHandler, Filters, CallbackContext, PreCheckoutQueryHandler
 )
 from itertools import cycle
 from environs import Env
@@ -28,9 +28,8 @@ EVENT_BUTTONS = get_categories()
 PRICE_BUTTONS = ['1000', '3000', '5000', '10000', 'Не важно']
 
 OTHER_EVENT, PRICE = range(2)
-USER_PHONE, USER_ADDRESS, USER_DELIVERY, SHOW_ORDER, ORDER_CONFIRM = range(2, 7)
+USER_PHONE, USER_ADDRESS, USER_DELIVERY, SHOW_ORDER, ORDER_CONFIRM, START_PAYMENT = range(2, 8)
 PHONE_NUMBER = 10
-
 
 def build_menu(buttons, n_cols,
                header_buttons=None,
@@ -394,24 +393,19 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
     user_data = context.user_data
     user = context.user_data['user']
 
-    update.message.reply_text(
-        text=(
-            'Спасибо за Ваш заказ.\n'
-            'Курьеры доставят его по указанному адресу в указанное Вами время.\n\n'
-            'Будем ждать Ваши новые заказы!'
-        ),
-    reply_markup=ReplyKeyboardRemove()
-    )
     if not get_user(tg_user_id=user_data['id']):
         add_user(tg_user_id=user_data['id'], name=user_data['fullname'], phone_number=user_data['phone_number'])
 
     order = create_order(user_data)
+    if order:
+        context.user_data['zakaz'] = order.id
     # отправка уведомления курьерам
     service_id = context.bot_data['service_id']
     user_data = context.user_data
     date_delivery = context.user_data['date_delivery']
     time_delivery = context.user_data['time_delivery']
 
+    # отправка заявки на доставку в группу курьеров
     update.effective_user.bot.send_message(
         chat_id=service_id,
         text=(
@@ -424,7 +418,63 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
         ),
     )
 
+    option_keyboard = [['Оплатить онлайн', 'Оплачу курьеру']]
+    reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True, one_time_keyboard=True)
+
+    update.message.reply_text(
+        text=(
+            'Спасибо за Ваш заказ.\n'
+            'Курьеры доставят его по указанному адресу в указанное Вами время.\n\n'
+            'А пока Вы можете оплатить заказ онлайн!'
+        ),
+    reply_markup=reply_markup
+    )
+
+    return START_PAYMENT
+
+
+def start_payment_callback(update: Update, context: CallbackContext) -> int:
+    """Sends an invoice without shipping-payment."""
+    chat_id = update.message.chat_id
+    user_data = context.user_data
+    payment_provider_token = context.bot_data['payment_provider_token']
+
+    title = 'Payment Example'
+    description = f'Оплата заказа № {user_data["zakaz"]}'
+    # select a payload just for you to recognize its the donation from your bot
+    payload = 'Custom-Payload'
+    # In order to get a provider_token see https://core.telegram.org/bots/payments#getting-a-token
+    currency = "RUB"
+    # price in dollars
+    bouquet = get_bouquet_for_order(user_data["bouquet_id"])
+    price = 100 # int(bouquet.price)
+    # price * 100 so as to include 2 decimal points
+    prices = [LabeledPrice("Test", price * 100)]
+
+    # optionally pass need_name=True, need_phone_number=True,
+    # need_email=True, need_shipping_address=True, is_flexible=True
+    context.bot.send_invoice(
+        chat_id, title, description, payload, payment_provider_token, currency, prices
+    )
+
     return ConversationHandler.END
+
+
+def precheckout_callback(update: Update, context: CallbackContext) -> None:
+    """Answers the PreQecheckoutQuery"""
+    query = update.pre_checkout_query
+    # check the payload, is this from your bot?
+    if query.invoice_payload != 'Custom-Payload':
+        # answer False pre_checkout_query
+        query.answer(ok=False, error_message="Something went wrong...")
+    else:
+        query.answer(ok=True)
+
+
+def successful_payment_callback(update: Update, context: CallbackContext) -> None:
+        """Confirms the successful payment."""
+        # do something after successfully receiving payment?
+        update.message.reply_text("Thank you for your payment!")
 
 
 def confirm_agreement(update: Update, context: CallbackContext):
@@ -460,12 +510,14 @@ if __name__ == '__main__':
     bot_token = env.str("TG_TOKEN")
     florist_id = env('FLORIST_ID')
     service_id = env('SERVICE_ID')
+    payment_provider_token = env('PAYMENT_PROVIDER_TOKEN')
 
     updater = Updater(token=bot_token)
     dispatcher = updater.dispatcher
     dispatcher.bot_data = {
         'florist_id': florist_id,
-        'service_id': service_id
+        'service_id': service_id,
+        'payment_provider_token': payment_provider_token
     }
 
     other_event_handler = ConversationHandler(
@@ -503,6 +555,10 @@ if __name__ == '__main__':
                 MessageHandler(Filters.regex('^(Да, все верно!)$'), order_to_work),
                 MessageHandler(Filters.regex('^(Я передумал)$'), start)
                             ],
+            START_PAYMENT: [
+                MessageHandler(Filters.regex('^(Оплатить онлайн)$'), start_payment_callback),
+                MessageHandler(Filters.regex('^(Оплачу курьеру)$'), cancel)
+            ],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
@@ -530,6 +586,8 @@ if __name__ == '__main__':
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Посмотреть всю коллекцию)$'), show_catalog_flower))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Не согласен)$'), start))
     dispatcher.add_handler(CommandHandler('cancel', cancel))
+    dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback))
+    dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
 
     updater.start_polling()
     updater.idle()
