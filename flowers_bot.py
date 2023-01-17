@@ -27,7 +27,6 @@ EVENT_BUTTONS = get_categories()
 
 PRICE_BUTTONS = ['1000', '3000', '5000', '10000', 'Не важно']
 
-# labels ConversationHandler
 OTHER_EVENT, PRICE = range(2)
 USER_PHONE, USER_ADDRESS, USER_DELIVERY, SHOW_ORDER, ORDER_CONFIRM = range(2, 7)
 PHONE_NUMBER = 10
