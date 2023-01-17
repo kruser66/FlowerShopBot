@@ -14,6 +14,11 @@
 База данных содержит информацию о Заказчиках, Букетах, Категориях и Заказах.  
 База данных в проекте используется sqlite. Управление базой данных реализовано через `Django admin site`.
 
+## Пример работы бота
+
+![Чат-бот FlowersBot](https://github.com/kruser66/FlowerShopBot/blob/master/examples/bot_example.gif).
+
+
 ## Как установить
 
 Скачайте код с репозитория.
@@ -35,7 +40,8 @@ PAYMENT_PROVIDER_TOKEN = 'YOUR PAYMENT_PROVIDER_TOKEN'
 
 ## Как запустить
 
-Для работы Django можно использовать тестовую базу данных из папки `example`  
+Для работы Django можно использовать тестовую базу данных из папки  
+[example](https://github.com/kruser66/FlowerShopBot/blob/master/examples/db.sqlite3)  
 либо создать с нуля:
 
 Создайте СуперПользователя для доступа в админку
