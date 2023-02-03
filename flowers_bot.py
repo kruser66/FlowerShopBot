@@ -398,7 +398,7 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
 
     order = create_order(user_data)
     if order:
-        context.user_data['zakaz'] = order.id
+        context.user_data['order'] = order.id
     # отправка уведомления курьерам
     service_id = context.bot_data['service_id']
     user_data = context.user_data
@@ -490,7 +490,7 @@ def confirm_agreement(update: Update, context: CallbackContext):
 
     update.effective_user.bot.send_document(
         chat_id=chat_id,
-        document=open('soglasie.pdf', 'rb'),
+        document=open('agreement.pdf', 'rb'),
         caption='Для оформления заказа требуется подтвердить согласие на обработку персональных данных',
         reply_markup=reply_markup
     )
