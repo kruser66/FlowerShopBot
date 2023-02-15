@@ -440,7 +440,7 @@ def start_payment_callback(update: Update, context: CallbackContext) -> int:
     payment_provider_token = context.bot_data['payment_provider_token']
 
     title = 'Payment Example'
-    description = f'Оплата заказа № {user_data["zakaz"]}'
+    description = f'Оплата заказа № {user_data["order"]}'
     # select a payload just for you to recognize its the donation from your bot
     payload = 'Custom-Payload'
     # In order to get a provider_token see https://core.telegram.org/bots/payments#getting-a-token
